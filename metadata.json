@@ -1,0 +1,6 @@
+{
+  "name": "Stop! stay healthy",
+  "description": "Monitor fasting times, weight history, and bad habits like smoking, alcohol, and sugar to stay healthy.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
