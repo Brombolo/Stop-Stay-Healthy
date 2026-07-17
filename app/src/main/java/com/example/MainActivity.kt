@@ -8,12 +8,15 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.*
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -51,17 +54,23 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MyApplicationTheme {
-                MainApp()
+            val viewModel: HealthViewModel = viewModel()
+            val themeMode = viewModel.themeMode
+            val darkTheme = when (themeMode) {
+                1 -> false
+                2 -> true
+                else -> isSystemInDarkTheme()
+            }
+            MyApplicationTheme(darkTheme = darkTheme) {
+                MainApp(viewModel)
             }
         }
     }
 }
 
 @Composable
-fun MainApp() {
+fun MainApp(viewModel: HealthViewModel) {
     val context = LocalContext.current
-    val viewModel: HealthViewModel = viewModel()
     
     val habitState by viewModel.habitState.collectAsStateWithLifecycle()
     val fastingSessions by viewModel.fastingSessions.collectAsStateWithLifecycle()
@@ -71,7 +80,6 @@ fun MainApp() {
     val lang = Translation.getLanguageCode(habitState.language)
 
     // Statistics Screen Visibility Constraint:
-    // "nascondere la sezione delle statistiche se il modulo del digiuno è disabilitato."
     if (currentScreen == Screen.Statistics && !habitState.fastingEnabled) {
         LaunchedEffect(Unit) {
             viewModel.navigateTo(Screen.Settings)
@@ -91,102 +99,115 @@ fun MainApp() {
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
-        if (currentScreen == Screen.Onboarding) {
-            OnboardingScreen(
-                lang = lang,
-                onComplete = { f, s, al, su ->
-                    viewModel.completeOnboarding(f, s, al, su)
-                }
-            )
-        } else {
-            // Main structure with Sidebar (NavigationRail) and Main Content area
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .windowInsetsPadding(WindowInsets.safeDrawing)
-            ) {
-                // Sidebar Menu (Sempre Visibile as requested)
-                NavigationSidebar(
-                    currentScreen = currentScreen,
-                    habitState = habitState,
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f),
+                            MaterialTheme.colorScheme.background
+                        ),
+                        center = Offset(0f, 0f),
+                        radius = 2500f
+                    )
+                )
+        ) {
+            if (currentScreen == Screen.Onboarding) {
+                OnboardingScreen(
                     lang = lang,
-                    onNavigate = { viewModel.navigateTo(it) }
+                    onComplete = { f, s, al, su ->
+                        viewModel.completeOnboarding(f, s, al, su)
+                    }
                 )
-
-                // Divider line
-                VerticalDivider(
-                    thickness = 1.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                )
-
-                // Main Content Screen Box with animated transitions
-                Box(
+            } else {
+                Row(
                     modifier = Modifier
-                        .fillMaxHeight()
-                        .weight(1f)
+                        .fillMaxSize()
+                        .windowInsetsPadding(WindowInsets.safeDrawing)
                 ) {
-                    when (currentScreen) {
-                        Screen.Fasting -> FastingScreen(
-                            lang = lang,
-                            startTime = viewModel.fastingStartTime,
-                            ticker = ticker,
-                            onStart = { viewModel.startFasting(it) },
-                            onStop = { end, weight -> viewModel.stopFasting(end, weight) },
-                            onEditTime = { viewModel.updateFastingStartTime(it) }
-                        )
-                        Screen.Smoking -> BadHabitScreen(
-                            title = Translation.getText("smoking", lang),
-                            lang = lang,
-                            startTime = viewModel.smokingStartTime,
-                            ticker = ticker,
-                            icon = Icons.Default.SmokingRooms,
-                            isSmoking = true,
-                            dailyCost = habitState.smokingDailyCost,
-                            onStart = { viewModel.startSmoking(it) },
-                            onStop = { viewModel.stopSmoking() },
-                            onUpdateSmokingCost = { viewModel.updateSmokingCost(it) }
-                        )
-                        Screen.Alcohol -> BadHabitScreen(
-                            title = Translation.getText("alcohol", lang),
-                            lang = lang,
-                            startTime = viewModel.alcoholStartTime,
-                            ticker = ticker,
-                            icon = Icons.Default.LocalBar,
-                            isSmoking = false,
-                            onStart = { viewModel.startAlcohol(it) },
-                            onStop = { viewModel.stopAlcohol() }
-                        )
-                        Screen.Sugar -> BadHabitScreen(
-                            title = Translation.getText("sugar", lang),
-                            lang = lang,
-                            startTime = viewModel.sugarStartTime,
-                            ticker = ticker,
-                            icon = Icons.Default.Cake,
-                            isSmoking = false,
-                            onStart = { viewModel.startSugar(it) },
-                            onStop = { viewModel.stopSugar() }
-                        )
-                        Screen.Statistics -> StatisticsScreen(
-                            lang = lang,
-                            fastingSessions = fastingSessions,
-                            weightEntries = weightEntries,
-                            onAddWeight = { w, d -> viewModel.addWeightEntry(w, d) },
-                            onEditWeight = { viewModel.editWeightEntry(it) },
-                            onDeleteWeight = { viewModel.deleteWeightEntry(it) },
-                            onEditFastingSession = { viewModel.updateFastingSession(it) },
-                            onDeleteFastingSession = { viewModel.deleteFastingSession(it) }
-                        )
-                        Screen.Settings -> SettingsScreen(
-                            lang = lang,
-                            habitState = habitState,
-                            onToggleFasting = { viewModel.toggleFastingEnabled(it) },
-                            onToggleSmoking = { viewModel.toggleSmokingEnabled(it) },
-                            onToggleAlcohol = { viewModel.toggleAlcoholEnabled(it) },
-                            onToggleSugar = { viewModel.toggleSugarEnabled(it) },
-                            onLanguageSelected = { viewModel.setLanguage(it) },
-                            onResetApp = { viewModel.resetApplication() }
-                        )
-                        else -> {}
+                    NavigationSidebar(
+                        currentScreen = currentScreen,
+                        habitState = habitState,
+                        lang = lang,
+                        onNavigate = { viewModel.navigateTo(it) }
+                    )
+
+                    VerticalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .weight(1f)
+                    ) {
+                        when (currentScreen) {
+                            Screen.Fasting -> FastingScreen(
+                                lang = lang,
+                                startTime = viewModel.fastingStartTime,
+                                ticker = ticker,
+                                onStart = { viewModel.startFasting(it) },
+                                onStop = { end, weightVal -> viewModel.stopFasting(end, weightVal) },
+                                onEditTime = { viewModel.updateFastingStartTime(it) }
+                            )
+                            Screen.Smoking -> BadHabitScreen(
+                                title = Translation.getText("smoking", lang),
+                                lang = lang,
+                                startTime = viewModel.smokingStartTime,
+                                ticker = ticker,
+                                icon = Icons.Default.SmokingRooms,
+                                isSmoking = true,
+                                dailyCost = habitState.smokingDailyCost,
+                                onStart = { viewModel.startSmoking(it) },
+                                onStop = { viewModel.stopSmoking() },
+                                onUpdateSmokingCost = { viewModel.updateSmokingCost(it) }
+                            )
+                            Screen.Alcohol -> BadHabitScreen(
+                                title = Translation.getText("alcohol", lang),
+                                lang = lang,
+                                startTime = viewModel.alcoholStartTime,
+                                ticker = ticker,
+                                icon = Icons.Default.LocalBar,
+                                isSmoking = false,
+                                onStart = { viewModel.startAlcohol(it) },
+                                onStop = { viewModel.stopAlcohol() }
+                            )
+                            Screen.Sugar -> BadHabitScreen(
+                                title = Translation.getText("sugar", lang),
+                                lang = lang,
+                                startTime = viewModel.sugarStartTime,
+                                ticker = ticker,
+                                icon = Icons.Default.Cake,
+                                isSmoking = false,
+                                onStart = { viewModel.startSugar(it) },
+                                onStop = { viewModel.stopSugar() }
+                            )
+                            Screen.Statistics -> StatisticsScreen(
+                                lang = lang,
+                                fastingSessions = fastingSessions,
+                                weightEntries = weightEntries,
+                                onAddWeight = { w, d -> viewModel.addWeightEntry(w, d) },
+                                onEditWeight = { viewModel.editWeightEntry(it) },
+                                onDeleteWeight = { viewModel.deleteWeightEntry(it) },
+                                onEditFastingSession = { viewModel.updateFastingSession(it) },
+                                onDeleteFastingSession = { viewModel.deleteFastingSession(it) }
+                            )
+                            Screen.Settings -> SettingsScreen(
+                                lang = lang,
+                                habitState = habitState,
+                                themeMode = viewModel.themeMode,
+                                onToggleFasting = { viewModel.toggleFastingEnabled(it) },
+                                onToggleSmoking = { viewModel.toggleSmokingEnabled(it) },
+                                onToggleAlcohol = { viewModel.toggleAlcoholEnabled(it) },
+                                onToggleSugar = { viewModel.toggleSugarEnabled(it) },
+                                onLanguageSelected = { viewModel.setLanguage(it) },
+                                onThemeModeSelected = { viewModel.updateThemeMode(it) },
+                                onResetApp = { viewModel.resetApplication() }
+                            )
+                            else -> {}
+                        }
                     }
                 }
             }
@@ -202,87 +223,104 @@ fun NavigationSidebar(
     onNavigate: (Screen) -> Unit
 ) {
     NavigationRail(
-        modifier = Modifier.width(76.dp),
-        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        modifier = Modifier.fillMaxHeight(),
+        containerColor = Color.Transparent,
         header = {
-            Image(
-                painter = androidx.compose.ui.res.painterResource(id = R.drawable.img_app_icon),
-                contentDescription = "App Logo",
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
-            )
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Surface(
+                    modifier = Modifier.size(54.dp),
+                    shape = CircleShape,
+                    color = Color.White,
+                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
+                    shadowElevation = 4.dp
+                ) {
+                    Image(
+                        painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_launcher_foreground),
+                        contentDescription = "App Logo",
+                        modifier = Modifier.padding(8.dp).clip(CircleShape)
+                    )
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+            }
         }
     ) {
-        Column(
-            modifier = Modifier.fillMaxHeight(),
-            verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
-            horizontalAlignment = Alignment.CenterHorizontally
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surface,
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        )
+                    )
+                )
         ) {
-            // Fasting Icon (if active/enabled)
-            if (habitState.fastingEnabled) {
+            Column(
+                modifier = Modifier.fillMaxHeight().padding(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.Top),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (habitState.fastingEnabled) {
+                    SidebarItem(
+                        icon = Icons.Default.Timer,
+                        label = Translation.getText("fasting", lang),
+                        selected = currentScreen == Screen.Fasting,
+                        onClick = { onNavigate(Screen.Fasting) }
+                    )
+                }
+
+                if (habitState.smokingEnabled) {
+                    SidebarItem(
+                        icon = Icons.Default.SmokingRooms,
+                        label = Translation.getText("smoking", lang),
+                        selected = currentScreen == Screen.Smoking,
+                        onClick = { onNavigate(Screen.Smoking) }
+                    )
+                }
+
+                if (habitState.alcoholEnabled) {
+                    SidebarItem(
+                        icon = Icons.Default.LocalBar,
+                        label = Translation.getText("alcohol", lang),
+                        selected = currentScreen == Screen.Alcohol,
+                        onClick = { onNavigate(Screen.Alcohol) }
+                    )
+                }
+
+                if (habitState.sugarEnabled) {
+                    SidebarItem(
+                        icon = Icons.Default.Cake,
+                        label = Translation.getText("sugar", lang),
+                        selected = currentScreen == Screen.Sugar,
+                        onClick = { onNavigate(Screen.Sugar) }
+                    )
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                HorizontalDivider(
+                    modifier = Modifier.width(40.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                )
+
+                if (habitState.fastingEnabled) {
+                    SidebarItem(
+                        icon = Icons.AutoMirrored.Filled.TrendingUp,
+                        label = Translation.getText("statistics", lang),
+                        selected = currentScreen == Screen.Statistics,
+                        onClick = { onNavigate(Screen.Statistics) }
+                    )
+                }
+
                 SidebarItem(
-                    icon = Icons.Default.Timer,
-                    label = Translation.getText("fasting", lang),
-                    selected = currentScreen == Screen.Fasting,
-                    onClick = { onNavigate(Screen.Fasting) }
+                    icon = Icons.Default.Settings,
+                    label = Translation.getText("settings", lang),
+                    selected = currentScreen == Screen.Settings,
+                    onClick = { onNavigate(Screen.Settings) }
                 )
             }
-
-            // Smoking Icon (if active/enabled)
-            if (habitState.smokingEnabled) {
-                SidebarItem(
-                    icon = Icons.Default.SmokingRooms,
-                    label = Translation.getText("smoking", lang),
-                    selected = currentScreen == Screen.Smoking,
-                    onClick = { onNavigate(Screen.Smoking) }
-                )
-            }
-
-            // Alcohol Icon (if active/enabled)
-            if (habitState.alcoholEnabled) {
-                SidebarItem(
-                    icon = Icons.Default.LocalBar,
-                    label = Translation.getText("alcohol", lang),
-                    selected = currentScreen == Screen.Alcohol,
-                    onClick = { onNavigate(Screen.Alcohol) }
-                )
-            }
-
-            // Sugar Icon (if active/enabled)
-            if (habitState.sugarEnabled) {
-                SidebarItem(
-                    icon = Icons.Default.Cake,
-                    label = Translation.getText("sugar", lang),
-                    selected = currentScreen == Screen.Sugar,
-                    onClick = { onNavigate(Screen.Sugar) }
-                )
-            }
-
-            // Divider
-            HorizontalDivider(
-                modifier = Modifier.width(36.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-            )
-
-            // Statistics Icon (only if fasting is active/enabled)
-            if (habitState.fastingEnabled) {
-                SidebarItem(
-                    icon = Icons.AutoMirrored.Filled.TrendingUp,
-                    label = Translation.getText("statistics", lang),
-                    selected = currentScreen == Screen.Statistics,
-                    onClick = { onNavigate(Screen.Statistics) }
-                )
-            }
-
-            // Settings Icon (always active)
-            SidebarItem(
-                icon = Icons.Default.Settings,
-                label = Translation.getText("settings", lang),
-                selected = currentScreen == Screen.Settings,
-                onClick = { onNavigate(Screen.Settings) }
-            )
         }
     }
 }
@@ -296,13 +334,15 @@ fun SidebarItem(
 ) {
     val containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
     val contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+    val iconSize by animateDpAsState(targetValue = if (selected) 28.dp else 24.dp)
 
     Box(
         modifier = Modifier
-            .size(54.dp)
+            .size(60.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(containerColor)
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            .padding(4.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -313,12 +353,13 @@ fun SidebarItem(
                 imageVector = icon,
                 contentDescription = label,
                 tint = contentColor,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(iconSize)
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = label,
-                fontSize = 8.sp,
+                fontSize = 9.sp,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                 color = contentColor,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
@@ -339,7 +380,6 @@ fun OnboardingScreen(
     var alcoholSelected by remember { mutableStateOf(false) }
     var sugarSelected by remember { mutableStateOf(false) }
 
-    // At least one option must be selected
     val isValid = fastingSelected || smokingSelected || alcoholSelected || sugarSelected
 
     Column(
@@ -352,7 +392,7 @@ fun OnboardingScreen(
     ) {
         Spacer(modifier = Modifier.height(32.dp))
         Image(
-            painter = androidx.compose.ui.res.painterResource(id = R.drawable.img_app_icon),
+            painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_launcher_foreground),
             contentDescription = "App Logo",
             modifier = Modifier
                 .size(110.dp)
@@ -375,7 +415,6 @@ fun OnboardingScreen(
         )
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Options List
         OnboardingOptionCard(
             title = Translation.getText("fasting", lang),
             description = Translation.getText("onboarding_desc_fasting", lang),
@@ -432,7 +471,7 @@ fun OnboardingScreen(
                 color = Color.White
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Icon(Icons.Default.ArrowForward, contentDescription = "Continue")
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Continue")
         }
     }
 }
@@ -445,12 +484,12 @@ fun OnboardingOptionCard(
     selected: Boolean,
     onSelectedChange: (Boolean) -> Unit
 ) {
-    val borderColor = if (selected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+    val borderColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
     val backgroundBrush = if (selected) {
         Brush.linearGradient(
             colors = listOf(
-                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
-                MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
             )
         )
     } else {
@@ -491,7 +530,7 @@ fun OnboardingOptionCard(
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -514,14 +553,13 @@ fun OnboardingOptionCard(
                 Checkbox(
                     checked = selected,
                     onCheckedChange = { onSelectedChange(it) },
-                    colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.secondary)
+                    colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
                 )
             }
         }
     }
 }
 
-// Helpers for DateTime Picking
 fun showDateTimePicker(
     context: Context,
     initialTimestamp: Long,
@@ -557,6 +595,14 @@ fun showDateTimePicker(
     ).show()
 }
 
+data class FastingStage(
+    val startHour: Double,
+    val endHour: Double,
+    val name: String,
+    val descKey: String,
+    val icon: ImageVector
+)
+
 @Composable
 fun FastingScreen(
     lang: String,
@@ -575,22 +621,22 @@ fun FastingScreen(
     val elapsedHours = elapsedMs / 3600000.0
     val msToStart = if (isFuture) startTime - ticker else 0L
 
-    // List of fasting stages as described by user
-    val fastingStages = listOf(
-        FastingStage(0.0, 2.0, Translation.getText("f_step_1", lang), "f_step_1_desc"),
-        FastingStage(2.0, 5.0, Translation.getText("f_step_2", lang), "f_step_2_desc"),
-        FastingStage(5.0, 8.0, Translation.getText("f_step_3", lang), "f_step_3_desc"),
-        FastingStage(8.0, 10.0, Translation.getText("f_step_4", lang), "f_step_4_desc"),
-        FastingStage(10.0, 12.0, Translation.getText("f_step_5", lang), "f_step_5_desc"),
-        FastingStage(12.0, 18.0, Translation.getText("f_step_6", lang), "f_step_6_desc"),
-        FastingStage(18.0, 24.0, Translation.getText("f_step_7", lang), "f_step_7_desc"),
-        FastingStage(24.0, 48.0, Translation.getText("f_step_8", lang), "f_step_8_desc"),
-        FastingStage(48.0, 56.0, Translation.getText("f_step_9", lang), "f_step_9_desc"),
-        FastingStage(56.0, 72.0, Translation.getText("f_step_10", lang), "f_step_10_desc"),
-        FastingStage(72.0, 999.0, Translation.getText("f_step_11", lang), "f_step_11_desc")
-    )
+    val fastingStages = remember(lang) {
+        listOf(
+            FastingStage(0.0, 2.0, Translation.getText("f_step_1", lang), "f_step_1_desc", Icons.AutoMirrored.Filled.TrendingUp),
+            FastingStage(2.0, 5.0, Translation.getText("f_step_2", lang), "f_step_2_desc", Icons.AutoMirrored.Filled.TrendingDown),
+            FastingStage(5.0, 8.0, Translation.getText("f_step_3", lang), "f_step_3_desc", Icons.Default.Balance),
+            FastingStage(8.0, 10.0, Translation.getText("f_step_4", lang), "f_step_4_desc", Icons.Default.Timer),
+            FastingStage(10.0, 12.0, Translation.getText("f_step_5", lang), "f_step_5_desc", Icons.Default.Whatshot),
+            FastingStage(12.0, 18.0, Translation.getText("f_step_6", lang), "f_step_6_desc", Icons.Default.Bolt),
+            FastingStage(18.0, 24.0, Translation.getText("f_step_7", lang), "f_step_7_desc", Icons.Default.LocalFireDepartment),
+            FastingStage(24.0, 48.0, Translation.getText("f_step_8", lang), "f_step_8_desc", Icons.Default.AutoFixHigh),
+            FastingStage(48.0, 56.0, Translation.getText("f_step_9", lang), "f_step_9_desc", Icons.Default.KeyboardDoubleArrowUp),
+            FastingStage(56.0, 72.0, Translation.getText("f_step_10", lang), "f_step_10_desc", Icons.Default.South),
+            FastingStage(72.0, 999.0, Translation.getText("f_step_11", lang), "f_step_11_desc", Icons.Default.HealthAndSafety)
+        )
+    }
 
-    // Current active fasting stage index
     val currentStageIndex = if (isActive && !isFuture) {
         fastingStages.indexOfLast { elapsedHours >= it.startHour }.coerceAtLeast(0)
     } else -1
@@ -602,7 +648,6 @@ fun FastingScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Card of active/inactive state
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -632,18 +677,16 @@ fun FastingScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Beautiful Circular Timer Graphic (Canvas)
                 Box(
                     modifier = Modifier.size(200.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     val sweepAngle = if (isActive && !isFuture) {
-                        // Max circle is 24 hours
                         ((elapsedHours % 24.0) / 24.0 * 360f).toFloat()
                     } else 0f
 
                     val backgroundRingColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                    val activeRingColor = MaterialTheme.colorScheme.secondary
+                    val activeRingColor = MaterialTheme.colorScheme.primary
 
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         drawCircle(
@@ -693,7 +736,7 @@ fun FastingScreen(
                                 Text(
                                     text = if (currentStageIndex != -1) fastingStages[currentStageIndex].name else "",
                                     fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.secondary,
+                                    color = MaterialTheme.colorScheme.primary,
                                     textAlign = TextAlign.Center,
                                     maxLines = 2,
                                     overflow = TextOverflow.Ellipsis,
@@ -713,7 +756,6 @@ fun FastingScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Controls Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center
@@ -765,7 +807,7 @@ fun FastingScreen(
                                     onStart(start)
                                 }
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                             shape = RoundedCornerShape(14.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -787,88 +829,116 @@ fun FastingScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Fasting Goals/Timeline Checklist (Vivi come un Goal as requested)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(20.dp)) {
                 Text(
                     text = Translation.getText("milestones", lang),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.primary
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 fastingStages.forEachIndexed { idx, stage ->
                     val completed = !isFuture && isActive && elapsedHours >= stage.startHour
                     val isCurrent = !isFuture && isActive && idx == currentStageIndex
+                    
+                    val progressInStage = if (isCurrent) {
+                        val duration = stage.endHour - stage.startHour
+                        val elapsedInStage = elapsedHours - stage.startHour
+                        (elapsedInStage / duration).coerceIn(0.0, 1.0).toFloat()
+                    } else if (completed) 1f else 0f
 
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .height(IntrinsicSize.Min),
+                        verticalAlignment = Alignment.Top
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (completed) MaterialTheme.colorScheme.secondary
-                                    else if (isCurrent) MaterialTheme.colorScheme.primaryContainer
-                                    else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                                ),
-                            contentAlignment = Alignment.Center
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.width(32.dp)
                         ) {
-                            if (completed) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (completed) MaterialTheme.colorScheme.primary
+                                        else if (isCurrent) MaterialTheme.colorScheme.primaryContainer
+                                        else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
                                 Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = "Completed",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
+                                    imageVector = stage.icon,
+                                    contentDescription = null,
+                                    tint = if (completed) Color.White 
+                                           else if (isCurrent) MaterialTheme.colorScheme.primary
+                                           else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(18.dp)
                                 )
-                            } else {
-                                Text(
-                                    text = (idx + 1).toString(),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isCurrent) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                            }
+                            
+                            if (idx < fastingStages.lastIndex) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .width(3.dp)
+                                        .clip(RoundedCornerShape(1.dp))
+                                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .fillMaxHeight(progressInStage)
+                                            .background(MaterialTheme.colorScheme.primary)
+                                    )
+                                }
                             }
                         }
 
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(16.dp))
 
-                        Column(modifier = Modifier.weight(1f)) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(bottom = if (idx < fastingStages.lastIndex) 20.dp else 0.dp)
+                        ) {
                             Text(
                                 text = stage.name,
-                                fontSize = 13.sp,
-                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isCurrent) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface
+                                fontSize = 14.sp,
+                                fontWeight = if (isCurrent || completed) FontWeight.Bold else FontWeight.Medium,
+                                color = if (completed) MaterialTheme.colorScheme.primary 
+                                        else if (isCurrent) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = Translation.getText(stage.descKey, lang),
-                                fontSize = 11.sp,
+                                fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            
+                            if (isCurrent) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                LinearProgressIndicator(
+                                    progress = { progressInStage },
+                                    modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    trackColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                                )
+                            }
                         }
-                    }
-
-                    if (idx < fastingStages.lastIndex) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = 40.dp, top = 2.dp, bottom = 2.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
-                        )
                     }
                 }
             }
         }
     }
 
-    // Stop Fast Dialog with customizable Date/Time and prominent weight input
     if (showStopDialog) {
         var editedEndTime by remember { mutableStateOf(System.currentTimeMillis()) }
         var weightInput by remember { mutableStateOf("") }
@@ -878,7 +948,6 @@ fun FastingScreen(
             title = { Text(text = Translation.getText("stop_fast", lang), fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    // Date Time picker container
                     Text(
                         text = Translation.getText("edit_end_time", lang),
                         fontSize = 12.sp,
@@ -886,7 +955,7 @@ fun FastingScreen(
                         color = MaterialTheme.colorScheme.primary
                     )
                     
-                    val format = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+                    val format = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) }
                     OutlinedCard(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -904,7 +973,7 @@ fun FastingScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.CalendarToday, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(20.dp))
+                                Icon(Icons.Default.CalendarToday, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Text(text = format.format(Date(editedEndTime)), fontSize = 14.sp)
                             }
@@ -912,7 +981,6 @@ fun FastingScreen(
                         }
                     }
 
-                    // Weight input textfield (Highly Prominent!)
                     Text(
                         text = Translation.getText("weight_optional", lang),
                         fontSize = 12.sp,
@@ -929,12 +997,12 @@ fun FastingScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         leadingIcon = {
-                            Icon(Icons.Default.MonitorWeight, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+                            Icon(Icons.Default.MonitorWeight, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         },
                         suffix = { Text("kg") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.secondary,
-                            cursorColor = MaterialTheme.colorScheme.secondary
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            cursorColor = MaterialTheme.colorScheme.primary
                         )
                     )
                 }
@@ -946,7 +1014,7 @@ fun FastingScreen(
                         onStop(editedEndTime, parsedWeight)
                         showStopDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(Translation.getText("confirm", lang), color = Color.White, fontWeight = FontWeight.Bold)
@@ -961,12 +1029,29 @@ fun FastingScreen(
     }
 }
 
-data class FastingStage(
-    val startHour: Double,
-    val endHour: Double,
-    val name: String,
-    val descKey: String
+data class Milestone(
+    val days: Double,
+    val title: String,
+    val desc: String,
+    val reliability: String
 )
+
+@Composable
+fun TimeItem(value: Long, unit: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = value.toString(),
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = unit,
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
 
 @Composable
 fun BadHabitScreen(
@@ -984,63 +1069,62 @@ fun BadHabitScreen(
     val context = LocalContext.current
     var showStopConfirmation by remember { mutableStateOf(false) }
 
-    // Milestones definitions from PDF
-    val milestones = if (isSmoking) {
-        listOf(
-            Milestone(0.0139, Translation.getText("sm_1", lang), Translation.getText("sm_1_desc", lang), "High"),
-            Milestone(0.333, Translation.getText("sm_2", lang), Translation.getText("sm_2_desc", lang), "High"),
-            Milestone(0.5, Translation.getText("sm_3", lang), Translation.getText("sm_3_desc", lang), "High"),
-            Milestone(1.0, Translation.getText("sm_4", lang), Translation.getText("sm_4_desc", lang), "Medium"),
-            Milestone(2.0, Translation.getText("sm_5", lang), Translation.getText("sm_5_desc", lang), "Medium"),
-            Milestone(3.0, Translation.getText("sm_6", lang), Translation.getText("sm_6_desc", lang), "High"),
-            Milestone(7.0, Translation.getText("sm_7", lang), Translation.getText("sm_7_desc", lang), "High"),
-            Milestone(14.0, Translation.getText("sm_8", lang), Translation.getText("sm_8_desc", lang), "High"),
-            Milestone(30.0, Translation.getText("sm_9", lang), Translation.getText("sm_9_desc", lang), "Medium"),
-            Milestone(90.0, Translation.getText("sm_10", lang), Translation.getText("sm_10_desc", lang), "High"),
-            Milestone(180.0, Translation.getText("sm_11", lang), Translation.getText("sm_11_desc", lang), "Medium"),
-            Milestone(270.0, Translation.getText("sm_12", lang), Translation.getText("sm_12_desc", lang), "Medium"),
-            Milestone(365.0, Translation.getText("sm_13", lang), Translation.getText("sm_13_desc", lang), "High"),
-            Milestone(1825.0, Translation.getText("sm_14", lang), Translation.getText("sm_14_desc", lang), "High"),
-            Milestone(3650.0, Translation.getText("sm_15", lang), Translation.getText("sm_15_desc", lang), "High"),
-            Milestone(5475.0, Translation.getText("sm_16", lang), Translation.getText("sm_16_desc", lang), "High")
-        )
-    } else if (title.contains("Alcol") || title.contains("Alcohol")) {
-        listOf(
-            Milestone(0.0416, Translation.getText("al_1", lang), Translation.getText("al_1_desc", lang), "High"),
-            Milestone(0.25, Translation.getText("al_2", lang), Translation.getText("al_2_desc", lang), "Medium"),
-            Milestone(1.0, Translation.getText("al_3", lang), Translation.getText("al_3_desc", lang), "High"),
-            Milestone(2.0, Translation.getText("al_4", lang), Translation.getText("al_4_desc", lang), "Medium"),
-            Milestone(3.0, Translation.getText("al_5", lang), Translation.getText("al_5_desc", lang), "Medium"),
-            Milestone(7.0, Translation.getText("al_6", lang), Translation.getText("al_6_desc", lang), "High"),
-            Milestone(14.0, Translation.getText("al_7", lang), Translation.getText("al_7_desc", lang), "Medium"),
-            Milestone(21.0, Translation.getText("al_8", lang), Translation.getText("al_8_desc", lang), "Medium"),
-            Milestone(30.0, Translation.getText("al_9", lang), Translation.getText("al_9_desc", lang), "High"),
-            Milestone(90.0, Translation.getText("al_10", lang), Translation.getText("al_10_desc", lang), "High"),
-            Milestone(180.0, Translation.getText("al_11", lang), Translation.getText("al_11_desc", lang), "Medium"),
-            Milestone(365.0, Translation.getText("al_12", lang), Translation.getText("al_12_desc", lang), "Medium"),
-            Milestone(730.0, Translation.getText("al_13", lang), Translation.getText("al_13_desc", lang), "Medium"),
-            Milestone(1825.0, Translation.getText("al_14", lang), Translation.getText("al_14_desc", lang), "Medium")
-        )
-    } else {
-        // Sugar milestones
-        listOf(
-            Milestone(0.0833, Translation.getText("su_1", lang), Translation.getText("su_1_desc", lang), "High"),
-            Milestone(1.0, Translation.getText("su_2", lang), Translation.getText("su_2_desc", lang), "Medium"),
-            Milestone(3.0, Translation.getText("su_3", lang), Translation.getText("su_3_desc", lang), "Low"),
-            Milestone(7.0, Translation.getText("su_4", lang), Translation.getText("su_4_desc", lang), "Medium"),
-            Milestone(14.0, Translation.getText("su_5", lang), Translation.getText("su_5_desc", lang), "Medium"),
-            Milestone(21.0, Translation.getText("su_6", lang), Translation.getText("su_6_desc", lang), "Low"),
-            Milestone(30.0, Translation.getText("su_7", lang), Translation.getText("su_7_desc", lang), "Low"),
-            Milestone(60.0, Translation.getText("su_8", lang), Translation.getText("su_8_desc", lang), "Medium"),
-            Milestone(90.0, Translation.getText("su_9", lang), Translation.getText("su_9_desc", lang), "Medium"),
-            Milestone(180.0, Translation.getText("su_10", lang), Translation.getText("su_10_desc", lang), "Medium"),
-            Milestone(365.0, Translation.getText("su_11", lang), Translation.getText("su_11_desc", lang), "Medium"),
-            Milestone(730.0, Translation.getText("su_12", lang), Translation.getText("su_12_desc", lang), "Low"),
-            Milestone(1095.0, Translation.getText("su_13", lang), Translation.getText("su_13_desc", lang), "Medium")
-        )
+    val milestones = remember(isSmoking, lang, title) {
+        if (isSmoking) {
+            listOf(
+                Milestone(0.0139, Translation.getText("sm_1", lang), Translation.getText("sm_1_desc", lang), "High"),
+                Milestone(0.333, Translation.getText("sm_2", lang), Translation.getText("sm_2_desc", lang), "High"),
+                Milestone(0.5, Translation.getText("sm_3", lang), Translation.getText("sm_3_desc", lang), "High"),
+                Milestone(1.0, Translation.getText("sm_4", lang), Translation.getText("sm_4_desc", lang), "Medium"),
+                Milestone(2.0, Translation.getText("sm_5", lang), Translation.getText("sm_5_desc", lang), "Medium"),
+                Milestone(3.0, Translation.getText("sm_6", lang), Translation.getText("sm_6_desc", lang), "High"),
+                Milestone(7.0, Translation.getText("sm_7", lang), Translation.getText("sm_7_desc", lang), "High"),
+                Milestone(14.0, Translation.getText("sm_8", lang), Translation.getText("sm_8_desc", lang), "High"),
+                Milestone(30.0, Translation.getText("sm_9", lang), Translation.getText("sm_9_desc", lang), "Medium"),
+                Milestone(90.0, Translation.getText("sm_10", lang), Translation.getText("sm_10_desc", lang), "High"),
+                Milestone(180.0, Translation.getText("sm_11", lang), Translation.getText("sm_11_desc", lang), "Medium"),
+                Milestone(270.0, Translation.getText("sm_12", lang), Translation.getText("sm_12_desc", lang), "Medium"),
+                Milestone(365.0, Translation.getText("sm_13", lang), Translation.getText("sm_13_desc", lang), "High"),
+                Milestone(1825.0, Translation.getText("sm_14", lang), Translation.getText("sm_14_desc", lang), "High"),
+                Milestone(3650.0, Translation.getText("sm_15", lang), Translation.getText("sm_15_desc", lang), "High"),
+                Milestone(5475.0, Translation.getText("sm_16", lang), Translation.getText("sm_16_desc", lang), "High")
+            )
+        } else if (title.contains("Alcol") || title.contains("Alcohol")) {
+            listOf(
+                Milestone(0.0416, Translation.getText("al_1", lang), Translation.getText("al_1_desc", lang), "High"),
+                Milestone(0.25, Translation.getText("al_2", lang), Translation.getText("al_2_desc", lang), "Medium"),
+                Milestone(1.0, Translation.getText("al_3", lang), Translation.getText("al_3_desc", lang), "High"),
+                Milestone(2.0, Translation.getText("al_4", lang), Translation.getText("al_4_desc", lang), "Medium"),
+                Milestone(3.0, Translation.getText("al_5", lang), Translation.getText("al_5_desc", lang), "Medium"),
+                Milestone(7.0, Translation.getText("al_6", lang), Translation.getText("al_6_desc", lang), "High"),
+                Milestone(14.0, Translation.getText("al_7", lang), Translation.getText("al_7_desc", lang), "Medium"),
+                Milestone(21.0, Translation.getText("al_8", lang), Translation.getText("al_8_desc", lang), "Medium"),
+                Milestone(30.0, Translation.getText("al_9", lang), Translation.getText("al_9_desc", lang), "High"),
+                Milestone(90.0, Translation.getText("al_10", lang), Translation.getText("al_10_desc", lang), "High"),
+                Milestone(180.0, Translation.getText("al_11", lang), Translation.getText("al_11_desc", lang), "Medium"),
+                Milestone(365.0, Translation.getText("al_12", lang), Translation.getText("al_12_desc", lang), "Medium"),
+                Milestone(730.0, Translation.getText("al_13", lang), Translation.getText("al_13_desc", lang), "Medium"),
+                Milestone(1825.0, Translation.getText("al_14", lang), Translation.getText("al_14_desc", lang), "Medium")
+            )
+        } else {
+            listOf(
+                Milestone(0.0833, Translation.getText("su_1", lang), Translation.getText("su_1_desc", lang), "High"),
+                Milestone(1.0, Translation.getText("su_2", lang), Translation.getText("su_2_desc", lang), "Medium"),
+                Milestone(3.0, Translation.getText("su_3", lang), Translation.getText("su_3_desc", lang), "Low"),
+                Milestone(7.0, Translation.getText("su_4", lang), Translation.getText("su_4_desc", lang), "Medium"),
+                Milestone(14.0, Translation.getText("su_5", lang), Translation.getText("su_5_desc", lang), "Medium"),
+                Milestone(21.0, Translation.getText("su_6", lang), Translation.getText("su_6_desc", lang), "Low"),
+                Milestone(30.0, Translation.getText("su_7", lang), Translation.getText("su_7_desc", lang), "Low"),
+                Milestone(60.0, Translation.getText("su_8", lang), Translation.getText("su_8_desc", lang), "Medium"),
+                Milestone(90.0, Translation.getText("su_9", lang), Translation.getText("su_9_desc", lang), "Medium"),
+                Milestone(180.0, Translation.getText("su_10", lang), Translation.getText("su_10_desc", lang), "Medium"),
+                Milestone(365.0, Translation.getText("su_11", lang), Translation.getText("su_11_desc", lang), "Medium"),
+                Milestone(730.0, Translation.getText("su_12", lang), Translation.getText("su_12_desc", lang), "Low"),
+                Milestone(1095.0, Translation.getText("su_13", lang), Translation.getText("su_13_desc", lang), "Medium")
+            )
+        }
     }
 
-    // 1. INACTIVE STATE
     if (startTime == -1L) {
         Column(
             modifier = Modifier
@@ -1055,13 +1139,13 @@ fun BadHabitScreen(
                 modifier = Modifier
                     .size(100.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)),
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.secondary,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(48.dp)
                 )
             }
@@ -1083,14 +1167,13 @@ fun BadHabitScreen(
             )
             Spacer(modifier = Modifier.height(40.dp))
             
-            // Start Immediately
             Button(
                 onClick = { onStart(System.currentTimeMillis()) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
                 Spacer(modifier = Modifier.width(8.dp))
@@ -1099,7 +1182,6 @@ fun BadHabitScreen(
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            // Start from custom past date
             OutlinedButton(
                 onClick = {
                     showDateTimePicker(context, System.currentTimeMillis()) { selectedTime ->
@@ -1110,18 +1192,17 @@ fun BadHabitScreen(
                     .fillMaxWidth()
                     .height(52.dp),
                 shape = RoundedCornerShape(16.dp),
-                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline)
+                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
             ) {
-                Icon(Icons.Default.CalendarToday, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+                Icon(Icons.Default.CalendarToday, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(Translation.getText("edit_start_time", lang), color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.Bold)
+                Text(Translation.getText("edit_start_time", lang), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
             }
             Spacer(modifier = Modifier.height(40.dp))
         }
         return
     }
 
-    // 2. ACTIVE STATE
     val isFuture = startTime > ticker
     val elapsedMs = if (isFuture) 0L else ticker - startTime
     val days = elapsedMs / (24 * 3600000)
@@ -1145,7 +1226,6 @@ fun BadHabitScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Main counter card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
@@ -1176,7 +1256,6 @@ fun BadHabitScreen(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Spacious Timer numbers
                 Row(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
@@ -1221,7 +1300,6 @@ fun BadHabitScreen(
 
                             Spacer(modifier = Modifier.height(12.dp))
 
-                            // Editable Tobacco Cost
                             var costInput by remember { mutableStateOf(dailyCost.toString()) }
                             var isEditingCost by remember { mutableStateOf(false) }
 
@@ -1275,9 +1353,7 @@ fun BadHabitScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Control Buttons
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // Edit Start Date/Time
                     Button(
                         onClick = {
                             showDateTimePicker(context, startTime) { newTime ->
@@ -1293,7 +1369,6 @@ fun BadHabitScreen(
                         Text(Translation.getText("edit", lang), color = MaterialTheme.colorScheme.onPrimaryContainer, fontSize = 12.sp)
                     }
 
-                    // Stop tracking completely (set to -1)
                     Button(
                         onClick = { showStopConfirmation = true },
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
@@ -1307,12 +1382,12 @@ fun BadHabitScreen(
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
-                val format = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+                val format = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) }
                 val label = if (isFuture) {
                     when (lang) {
                         "it" -> "Inizio previsto il"
                         "es" -> "Inicio programado el"
-                        "fr" -> "Début prévu le"
+                        "fr" -> "Début previsto le"
                         else -> "Scheduled to start on"
                     }
                 } else {
@@ -1328,7 +1403,6 @@ fun BadHabitScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Health Milestones Timeline (with reliability level badges)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
@@ -1359,7 +1433,7 @@ fun BadHabitScreen(
                                 .size(28.dp)
                                 .clip(CircleShape)
                                 .background(
-                                    if (completed) MaterialTheme.colorScheme.secondary
+                                    if (completed) MaterialTheme.colorScheme.primary
                                     else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                                 ),
                             contentAlignment = Alignment.Center
@@ -1384,11 +1458,10 @@ fun BadHabitScreen(
                                     text = milestone.title,
                                     fontSize = 13.sp,
                                     fontWeight = if (completed) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (completed) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurface,
+                                    color = if (completed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier.weight(1f)
                                 )
                                 
-                                // Evidence reliability Badge
                                 val badgeColor = when (milestone.reliability) {
                                     "High" -> Color(0xFF2E7D32)
                                     "Medium" -> Color(0xFFE65100)
@@ -1456,30 +1529,6 @@ fun BadHabitScreen(
 }
 
 @Composable
-fun TimeItem(value: Long, unit: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = value.toString(),
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            text = unit,
-            fontSize = 11.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-data class Milestone(
-    val days: Double,
-    val title: String,
-    val desc: String,
-    val reliability: String
-)
-
-@Composable
 fun StatisticsScreen(
     lang: String,
     fastingSessions: List<FastingSession>,
@@ -1502,15 +1551,62 @@ fun StatisticsScreen(
     var editSessionEnd by remember { mutableStateOf(0L) }
     var editSessionWeight by remember { mutableStateOf("") }
 
-    // Fasting chart period selection (Weekly vs Monthly)
     var isWeeklyView by remember { mutableStateOf(true) }
+    val periodDays = if (isWeeklyView) 7 else 30
 
-    // Filter out future or invalid sessions from stats calculation as per debug requirement 1/2
     val validSessions = remember(fastingSessions) {
         fastingSessions.filter { it.endTimestamp > it.startTimestamp && it.startTimestamp <= System.currentTimeMillis() }
     }
 
-    // Fasting summaries
+    val now = System.currentTimeMillis()
+    val dailyFastingHours = remember(validSessions, isWeeklyView) {
+        val hours = FloatArray(periodDays)
+        val cal = Calendar.getInstance()
+        for (i in 0 until periodDays) {
+            cal.timeInMillis = now
+            cal.add(Calendar.DAY_OF_YEAR, -(periodDays - 1 - i))
+            val targetDay = cal.get(Calendar.DAY_OF_YEAR)
+            val targetYear = cal.get(Calendar.YEAR)
+            val dayFasts = validSessions.filter { session ->
+                val sessionCal = Calendar.getInstance().apply { timeInMillis = session.endTimestamp }
+                sessionCal.get(Calendar.DAY_OF_YEAR) == targetDay && sessionCal.get(Calendar.YEAR) == targetYear
+            }
+            hours[i] = dayFasts.sumOf { (it.endTimestamp - it.startTimestamp) / 3600000.0 }.toFloat()
+        }
+        hours
+    }
+
+    val dailyWeights = remember(weightEntries, isWeeklyView) {
+        val weights = arrayOfNulls<Double>(periodDays)
+        val cal = Calendar.getInstance()
+        for (i in 0 until periodDays) {
+            cal.timeInMillis = now
+            cal.add(Calendar.DAY_OF_YEAR, -(periodDays - 1 - i))
+            val targetDay = cal.get(Calendar.DAY_OF_YEAR)
+            val targetYear = cal.get(Calendar.YEAR)
+            val dayWeights = weightEntries.filter { entry ->
+                val wCal = Calendar.getInstance().apply { timeInMillis = entry.timestamp }
+                wCal.get(Calendar.DAY_OF_YEAR) == targetDay && wCal.get(Calendar.YEAR) == targetYear
+            }
+            if (dayWeights.isNotEmpty()) {
+                weights[i] = dayWeights.sumOf { it.weight } / dayWeights.size
+            }
+        }
+        weights
+    }
+
+    val chartLabels = remember(isWeeklyView) {
+        val labels = Array(periodDays) { "" }
+        val sdf = SimpleDateFormat("dd/MM", Locale.getDefault())
+        val cal = Calendar.getInstance()
+        for (i in 0 until periodDays) {
+            cal.timeInMillis = now
+            cal.add(Calendar.DAY_OF_YEAR, -(periodDays - 1 - i))
+            labels[i] = sdf.format(Date(cal.timeInMillis))
+        }
+        labels
+    }
+
     val totalFasts = validSessions.size
     val averageDurationHours = if (totalFasts > 0) {
         validSessions.map { (it.endTimestamp - it.startTimestamp) / 3600000.0 }.average()
@@ -1537,7 +1633,6 @@ fun StatisticsScreen(
                 .padding(vertical = 8.dp)
         )
 
-        // Summary Cards Grid
         Row(modifier = Modifier.fillMaxWidth()) {
             Card(
                 modifier = Modifier
@@ -1567,7 +1662,6 @@ fun StatisticsScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Weight Trend Section with Beautiful Line Chart Drawing (Canvas)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
@@ -1586,7 +1680,6 @@ fun StatisticsScreen(
                         color = MaterialTheme.colorScheme.onSurface
                     )
 
-                    // Add Weight Entry
                     IconButton(
                         onClick = {
                             weightInput = ""
@@ -1604,7 +1697,6 @@ fun StatisticsScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Custom Drawn Weight Chart
                 if (weightEntries.isNotEmpty()) {
                     val sortedWeights = weightEntries.sortedBy { it.timestamp }
                     val weights = sortedWeights.map { it.weight }
@@ -1620,7 +1712,6 @@ fun StatisticsScreen(
                     ) {
                         val secondaryColor = MaterialTheme.colorScheme.secondary
                         val outlineColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                        val textColor = MaterialTheme.colorScheme.onSurface
 
                         Canvas(modifier = Modifier.fillMaxSize()) {
                             val pointsCount = sortedWeights.size
@@ -1635,7 +1726,6 @@ fun StatisticsScreen(
                                 Offset(x, y)
                             }
 
-                            // Draw horizontal reference lines (grid)
                             for (i in 1..3) {
                                 val gridY = h * i / 4
                                 drawLine(
@@ -1646,7 +1736,6 @@ fun StatisticsScreen(
                                 )
                             }
 
-                            // Draw the gradient filled path below the weight trend line
                             if (coordinates.size > 1) {
                                 val fillPath = Path().apply {
                                     moveTo(coordinates.first().x, coordinates.first().y)
@@ -1667,7 +1756,6 @@ fun StatisticsScreen(
                                     )
                                 )
 
-                                // Draw line connecting points
                                 val linePath = Path().apply {
                                     moveTo(coordinates.first().x, coordinates.first().y)
                                     for (i in 1 until coordinates.size) {
@@ -1681,7 +1769,6 @@ fun StatisticsScreen(
                                 )
                             }
 
-                            // Draw points and values
                             coordinates.forEachIndexed { idx, offset ->
                                 drawCircle(
                                     color = secondaryColor,
@@ -1697,12 +1784,11 @@ fun StatisticsScreen(
                         }
                     }
 
-                    // Display weight values on the horizontal timeline
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        val format = SimpleDateFormat("dd/MM", Locale.getDefault())
+                        val format = remember { SimpleDateFormat("dd/MM", Locale.getDefault()) }
                         Text(format.format(Date(sortedWeights.first().timestamp)), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (sortedWeights.size > 2) {
                             Text(format.format(Date(sortedWeights[sortedWeights.size / 2].timestamp)), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1730,83 +1816,69 @@ fun StatisticsScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Fasting Hours Chart (Weekly / Monthly Bar Chart)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = "Fasting Hours History",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+        Text(
+            text = "Fasting History",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Black,
+            color = MaterialTheme.colorScheme.primary
+        )
 
-                    // Period Toggle Buttons
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .padding(2.dp)
-                    ) {
-                        Text(
-                            text = "7 Days",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isWeeklyView) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(if (isWeeklyView) MaterialTheme.colorScheme.secondary else Color.Transparent)
-                                .clickable { isWeeklyView = true }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                        Text(
-                            text = "30 Days",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (!isWeeklyView) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(if (!isWeeklyView) MaterialTheme.colorScheme.secondary else Color.Transparent)
-                                .clickable { isWeeklyView = false }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .padding(vertical = 4.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                .padding(4.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(if (isWeeklyView) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    .clickable { isWeeklyView = true },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "7 Days",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isWeeklyView) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(if (!isWeeklyView) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    .clickable { isWeeklyView = false },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "30 Days",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (!isWeeklyView) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Build daily fast statistics
-                val now = System.currentTimeMillis()
-                val periodDays = if (isWeeklyView) 7 else 30
-                val dailyFastingHours = FloatArray(periodDays)
-                val labels = Array(periodDays) { "" }
-
-                val sdf = SimpleDateFormat("dd/MM", Locale.getDefault())
-                val cal = Calendar.getInstance()
-
-                for (i in 0 until periodDays) {
-                    cal.timeInMillis = now
-                    cal.add(Calendar.DAY_OF_YEAR, - (periodDays - 1 - i))
-                    val targetDay = cal.get(Calendar.DAY_OF_YEAR)
-                    val targetYear = cal.get(Calendar.YEAR)
-
-                    labels[i] = sdf.format(Date(cal.timeInMillis))
-
-                    // Sum fasting duration completed on this target day
-                    val dayFasts = validSessions.filter { session ->
-                        val sessionCal = Calendar.getInstance().apply { timeInMillis = session.endTimestamp }
-                        sessionCal.get(Calendar.DAY_OF_YEAR) == targetDay && sessionCal.get(Calendar.YEAR) == targetYear
-                    }
-                    dailyFastingHours[i] = dayFasts.sumOf { (it.endTimestamp - it.startTimestamp) / 3600000.0 }.toFloat()
-                }
+                Spacer(modifier = Modifier.height(24.dp))
 
                 val maxFastingHours = (dailyFastingHours.maxOrNull() ?: 0f).coerceAtLeast(16f)
 
@@ -1814,21 +1886,21 @@ fun StatisticsScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(140.dp)
+                            .height(160.dp)
+                            .padding(horizontal = 4.dp)
                     ) {
-                        val barColor = MaterialTheme.colorScheme.secondary
+                        val barColor = MaterialTheme.colorScheme.primary
                         val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
 
                         Canvas(modifier = Modifier.fillMaxSize()) {
                             val w = size.width
                             val h = size.height
 
-                            val barSpacingRatio = 0.3f
+                            val barSpacingRatio = if (isWeeklyView) 0.3f else 0.15f
                             val totalBarWidths = w / periodDays
                             val barWidth = totalBarWidths * (1 - barSpacingRatio)
                             val spacing = totalBarWidths * barSpacingRatio
 
-                            // Draw vertical bars
                             for (i in 0 until periodDays) {
                                 val barHeight = (dailyFastingHours[i] / maxFastingHours) * h
                                 val x = i * totalBarWidths + spacing / 2
@@ -1838,11 +1910,10 @@ fun StatisticsScreen(
                                     color = barColor,
                                     topLeft = Offset(x, y),
                                     size = androidx.compose.ui.geometry.Size(barWidth, barHeight),
-                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx())
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx(), 2.dp.toPx())
                                 )
                             }
 
-                            // Horizontal reference line
                             drawLine(
                                 color = gridColor,
                                 start = Offset(0f, h),
@@ -1852,16 +1923,17 @@ fun StatisticsScreen(
                         }
                     }
 
-                    // Bottom labels
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(labels.first(), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(chartLabels.first(), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (periodDays > 7) {
-                            Text(labels[15], fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(chartLabels[periodDays / 2], fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Text(labels.last(), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(chartLabels.last(), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 } else {
                     Box(
@@ -1878,7 +1950,6 @@ fun StatisticsScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Fasting & Weight Correlation Chart
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
@@ -1899,52 +1970,53 @@ fun StatisticsScreen(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
-                val correlationSessions = validSessions.filter { it.weight != null }.sortedBy { it.endTimestamp }
-
-                if (correlationSessions.isNotEmpty()) {
+                if (validSessions.isNotEmpty() || weightEntries.isNotEmpty()) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(140.dp)
+                            .height(160.dp)
+                            .padding(horizontal = 4.dp)
                     ) {
                         val barColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                         val lineColor = MaterialTheme.colorScheme.error
-                        val count = correlationSessions.size
+                        val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
 
                         Canvas(modifier = Modifier.fillMaxSize()) {
                             val w = size.width
                             val h = size.height
 
-                            val stepX = if (count > 1) w / (count - 1) else w
-                            
-                            val maxFast = correlationSessions.maxOf { (it.endTimestamp - it.startTimestamp) / 3600000.0 }.coerceAtLeast(12.0)
-                            val weights = correlationSessions.mapNotNull { it.weight }
-                            val minW = weights.minOrNull() ?: 50.0
-                            val maxW = weights.maxOrNull() ?: 100.0
-                            val wRange = if (maxW - minW > 0) maxW - minW else 1.0
+                            val maxFast = (dailyFastingHours.maxOrNull() ?: 0f).coerceAtLeast(16f)
+                            val nonNullWeights = dailyWeights.filterNotNull()
+                            val minW = (nonNullWeights.minOrNull() ?: 50.0) - 2.0
+                            val maxW = (nonNullWeights.maxOrNull() ?: 100.0) + 2.0
+                            val wRange = (maxW - minW).coerceAtLeast(1.0)
 
-                            // Draw bars (fasting hours) and points (weights)
-                            val lineCoords = mutableListOf<Offset>()
+                            val stepX = w / periodDays
 
-                            correlationSessions.forEachIndexed { idx, s ->
-                                val fastHrs = (s.endTimestamp - s.startTimestamp) / 3600000.0
+                            val barWidthRatio = 0.6f
+                            for (i in 0 until periodDays) {
+                                val fastHrs = dailyFastingHours[i]
                                 val barH = (fastHrs / maxFast) * h
-                                val barW = (w / count) * 0.4f
-                                val x = idx * stepX
+                                val barW = stepX * barWidthRatio
+                                val x = i * stepX + (stepX - barW) / 2
 
-                                // Draw fasting bar
                                 drawRect(
                                     color = barColor,
-                                    topLeft = Offset(x - barW / 2, (h - barH).toFloat()),
+                                    topLeft = Offset(x, (h - barH).toFloat()),
                                     size = androidx.compose.ui.geometry.Size(barW, barH.toFloat())
                                 )
-
-                                // Save weight line point
-                                val weightY = h - (((s.weight!! - minW) / wRange) * h).toFloat()
-                                lineCoords.add(Offset(x, weightY))
                             }
 
-                            // Connect weight line
+                            val lineCoords = mutableListOf<Offset>()
+                            for (i in 0 until periodDays) {
+                                val weight = dailyWeights[i]
+                                if (weight != null) {
+                                    val x = i * stepX + stepX / 2
+                                    val y = h - (((weight - minW) / wRange) * h).toFloat()
+                                    lineCoords.add(Offset(x, y))
+                                }
+                            }
+
                             if (lineCoords.size > 1) {
                                 val path = Path().apply {
                                     moveTo(lineCoords.first().x, lineCoords.first().y)
@@ -1959,27 +2031,39 @@ fun StatisticsScreen(
                                 )
                             }
 
-                            // Draw dots on weight line
                             lineCoords.forEach { offset ->
                                 drawCircle(
                                     color = lineColor,
                                     radius = 4.dp.toPx(),
                                     center = offset
                                 )
+                                drawCircle(
+                                    color = Color.White,
+                                    radius = 3.dp.toPx(),
+                                    center = offset
+                                )
                             }
+                            
+                            drawLine(
+                                color = gridColor,
+                                start = Offset(0f, h),
+                                end = Offset(w, h),
+                                strokeWidth = 1.dp.toPx()
+                            )
                         }
                     }
 
-                    // Display date range
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        val format = SimpleDateFormat("dd/MM", Locale.getDefault())
-                        Text(format.format(Date(correlationSessions.first().endTimestamp)), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (correlationSessions.size > 1) {
-                            Text(format.format(Date(correlationSessions.last().endTimestamp)), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(chartLabels.first(), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (periodDays > 7) {
+                            Text(chartLabels[periodDays / 2], fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
+                        Text(chartLabels.last(), fontSize = 9.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 } else {
                     Box(
@@ -1988,7 +2072,7 @@ fun StatisticsScreen(
                             .height(100.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("Add fasting entries with weight to unlock correlation analysis.", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                        Text("No data available for correlation analysis.", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
                     }
                 }
             }
@@ -1996,83 +2080,99 @@ fun StatisticsScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Fasting History Logs (With edit and remove)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(20.dp)) {
                 Text(
                     text = "Fasting History Logs",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.primary
                 )
                 Spacer(modifier = Modifier.height(12.dp))
 
                 if (fastingSessions.isNotEmpty()) {
-                    val sdf = SimpleDateFormat("dd MMM HH:mm", Locale.getDefault())
+                    val sdf = remember { SimpleDateFormat("dd MMM HH:mm", Locale.getDefault()) }
                     fastingSessions.sortedByDescending { it.endTimestamp }.forEachIndexed { idx, session ->
                         val durationHrs = (session.endTimestamp - session.startTimestamp) / 3600000.0
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 8.dp),
+                                .padding(vertical = 12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = String.format("%.1f hours", durationHrs),
-                                    fontSize = 14.sp,
+                                    fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.secondary
                                 )
+                                Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "Start: ${sdf.format(Date(session.startTimestamp))} | End: ${sdf.format(Date(session.endTimestamp))}",
-                                    fontSize = 11.sp,
+                                    text = "${sdf.format(Date(session.startTimestamp))} - ${sdf.format(Date(session.endTimestamp))}",
+                                    fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 if (session.weight != null) {
-                                    Text(
-                                        text = "Weight: ${session.weight} kg",
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.secondary,
-                                        fontWeight = FontWeight.Medium
-                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.MonitorWeight, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "${session.weight} kg",
+                                            fontSize = 12.sp,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
                                 }
                             }
 
-                            Row {
-                                IconButton(
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Surface(
                                     onClick = {
                                         editingSession = session
                                         editSessionStart = session.startTimestamp
                                         editSessionEnd = session.endTimestamp
                                         editSessionWeight = session.weight?.toString() ?: ""
                                         showEditSessionDialog = true
+                                    },
+                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                     }
-                                ) {
-                                    Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                                 }
-                                IconButton(
-                                    onClick = { onDeleteFastingSession(session) }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Surface(
+                                    onClick = { onDeleteFastingSession(session) },
+                                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(32.dp)
                                 ) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                                    }
                                 }
                             }
                         }
 
                         if (idx < fastingSessions.size - 1) {
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                         }
                     }
                 } else {
                     Text(
                         text = "No fasting history logs recorded.",
-                        fontSize = 12.sp,
-                        color = Color.Gray,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.outline,
                         modifier = Modifier.padding(vertical = 12.dp)
                     )
                 }
@@ -2081,72 +2181,83 @@ fun StatisticsScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Weight logs list
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(20.dp)) {
                 Text(
                     text = "Weight History Logs",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.primary
                 )
                 Spacer(modifier = Modifier.height(12.dp))
 
                 if (weightEntries.isNotEmpty()) {
-                    val format = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+                    val format = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
                     weightEntries.sortedByDescending { it.timestamp }.forEachIndexed { idx, entry ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 8.dp),
+                                .padding(vertical = 12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column {
                                 Text(
                                     text = "${entry.weight} kg",
-                                    fontSize = 14.sp,
+                                    fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.secondary
                                 )
+                                Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = format.format(Date(entry.timestamp)),
-                                    fontSize = 11.sp,
+                                    fontSize = 12.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
 
-                            Row {
-                                IconButton(
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Surface(
                                     onClick = {
                                         editingEntry = entry
                                         weightInput = entry.weight.toString()
                                         customDate = entry.timestamp
+                                    },
+                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                     }
-                                ) {
-                                    Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                                 }
-                                IconButton(
-                                    onClick = { onDeleteWeight(entry) }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Surface(
+                                    onClick = { onDeleteWeight(entry) },
+                                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(32.dp)
                                 ) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                                    }
                                 }
                             }
                         }
 
                         if (idx < weightEntries.size - 1) {
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                         }
                     }
                 } else {
                     Text(
                         text = "No weight logs recorded.",
-                        fontSize = 12.sp,
-                        color = Color.Gray,
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.outline,
                         modifier = Modifier.padding(vertical = 12.dp)
                     )
                 }
@@ -2154,7 +2265,6 @@ fun StatisticsScreen(
         }
     }
 
-    // Add Weight Dialog
     if (showAddWeightDialog) {
         AlertDialog(
             onDismissRequest = { showAddWeightDialog = false },
@@ -2168,13 +2278,13 @@ fun StatisticsScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.secondary,
-                            cursorColor = MaterialTheme.colorScheme.secondary
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            cursorColor = MaterialTheme.colorScheme.primary
                         )
                     )
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+                    val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -2202,7 +2312,7 @@ fun StatisticsScreen(
                         }
                         showAddWeightDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text(Translation.getText("save", lang), color = Color.White)
                 }
@@ -2215,7 +2325,6 @@ fun StatisticsScreen(
         )
     }
 
-    // Edit Weight Dialog
     if (editingEntry != null) {
         val entry = editingEntry!!
         AlertDialog(
@@ -2230,13 +2339,13 @@ fun StatisticsScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.secondary,
-                            cursorColor = MaterialTheme.colorScheme.secondary
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            cursorColor = MaterialTheme.colorScheme.primary
                         )
                     )
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+                    val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) }
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -2264,7 +2373,7 @@ fun StatisticsScreen(
                         }
                         editingEntry = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text(Translation.getText("save", lang), color = Color.White)
                 }
@@ -2277,17 +2386,15 @@ fun StatisticsScreen(
         )
     }
 
-    // Edit Fasting History Session Dialog (Modifica data/ora inizio o fine e peso)
     if (showEditSessionDialog && editingSession != null) {
         val session = editingSession!!
-        val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+        val sdf = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) }
 
         AlertDialog(
             onDismissRequest = { showEditSessionDialog = false },
             title = { Text("Edit Fasting Session", fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // Start Date/Time picker
                     Text("Start Date & Time", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Row(
                         modifier = Modifier
@@ -2304,7 +2411,6 @@ fun StatisticsScreen(
                         Icon(Icons.Default.CalendarToday, contentDescription = null, modifier = Modifier.size(16.dp))
                     }
 
-                    // End Date/Time picker
                     Text("End Date & Time", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Row(
                         modifier = Modifier
@@ -2321,7 +2427,6 @@ fun StatisticsScreen(
                         Icon(Icons.Default.CalendarToday, contentDescription = null, modifier = Modifier.size(16.dp))
                     }
 
-                    // Optional Weight associated
                     Text("Weight (kg, Optional)", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     OutlinedTextField(
                         value = editSessionWeight,
@@ -2346,7 +2451,7 @@ fun StatisticsScreen(
                         )
                         showEditSessionDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text(Translation.getText("save", lang), color = Color.White)
                 }
@@ -2364,11 +2469,13 @@ fun StatisticsScreen(
 fun SettingsScreen(
     lang: String,
     habitState: HabitState,
+    themeMode: Int,
     onToggleFasting: (Boolean) -> Unit,
     onToggleSmoking: (Boolean) -> Unit,
     onToggleAlcohol: (Boolean) -> Unit,
     onToggleSugar: (Boolean) -> Unit,
     onLanguageSelected: (String) -> Unit,
+    onThemeModeSelected: (Int) -> Unit,
     onResetApp: () -> Unit
 ) {
     var showResetDialog by remember { mutableStateOf(false) }
@@ -2399,7 +2506,6 @@ fun SettingsScreen(
                 .padding(vertical = 8.dp)
         )
 
-        // Modules management card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
@@ -2414,62 +2520,66 @@ fun SettingsScreen(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Fasting switch
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(Translation.getText("fasting", lang), fontSize = 14.sp)
+                    Text(Translation.getText("fasting", lang), fontSize = 15.sp, fontWeight = FontWeight.Medium)
                     Switch(
                         checked = habitState.fastingEnabled,
                         onCheckedChange = { onToggleFasting(it) },
-                        colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.secondary)
+                        thumbContent = {
+                            if (habitState.fastingEnabled) Icon(Icons.Default.Check, null, Modifier.size(16.dp))
+                        }
                     )
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), modifier = Modifier.padding(vertical = 4.dp))
 
-                // Smoking switch
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(Translation.getText("smoking", lang), fontSize = 14.sp)
+                    Text(Translation.getText("smoking", lang), fontSize = 15.sp, fontWeight = FontWeight.Medium)
                     Switch(
                         checked = habitState.smokingEnabled,
                         onCheckedChange = { onToggleSmoking(it) },
-                        colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.secondary)
+                        thumbContent = {
+                            if (habitState.smokingEnabled) Icon(Icons.Default.Check, null, Modifier.size(16.dp))
+                        }
                     )
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), modifier = Modifier.padding(vertical = 4.dp))
 
-                // Alcohol switch
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(Translation.getText("alcohol", lang), fontSize = 14.sp)
+                    Text(Translation.getText("alcohol", lang), fontSize = 15.sp, fontWeight = FontWeight.Medium)
                     Switch(
                         checked = habitState.alcoholEnabled,
                         onCheckedChange = { onToggleAlcohol(it) },
-                        colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.secondary)
+                        thumbContent = {
+                            if (habitState.alcoholEnabled) Icon(Icons.Default.Check, null, Modifier.size(16.dp))
+                        }
                     )
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f), modifier = Modifier.padding(vertical = 4.dp))
 
-                // Sugar switch
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(Translation.getText("sugar", lang), fontSize = 14.sp)
+                    Text(Translation.getText("sugar", lang), fontSize = 15.sp, fontWeight = FontWeight.Medium)
                     Switch(
                         checked = habitState.sugarEnabled,
                         onCheckedChange = { onToggleSugar(it) },
-                        colors = SwitchDefaults.colors(checkedThumbColor = MaterialTheme.colorScheme.secondary)
+                        thumbContent = {
+                            if (habitState.sugarEnabled) Icon(Icons.Default.Check, null, Modifier.size(16.dp))
+                        }
                     )
                 }
             }
@@ -2477,7 +2587,6 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Language settings card with Dropdown Menu (Mappa a un menu a tendina as debug req 1!)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
@@ -2492,7 +2601,6 @@ fun SettingsScreen(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Dropdown trigger button
                 Box(modifier = Modifier.fillMaxWidth()) {
                     OutlinedButton(
                         onClick = { languageDropdownExpanded = true },
@@ -2509,7 +2617,7 @@ fun SettingsScreen(
                             Icon(
                                 imageVector = Icons.Default.ArrowDropDown,
                                 contentDescription = "Select language",
-                                tint = MaterialTheme.colorScheme.secondary
+                                tint = MaterialTheme.colorScheme.primary
                             )
                         }
                     }
@@ -2538,19 +2646,55 @@ fun SettingsScreen(
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = Translation.getText("settings_theme", lang),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    val themes = listOf(
+                        0 to Translation.getText("theme_system", lang),
+                        1 to Translation.getText("theme_light", lang),
+                        2 to Translation.getText("theme_dark", lang)
+                    )
+                    themes.forEachIndexed { index, pair ->
+                        val selected = themeMode == pair.first
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                .clickable { onThemeModeSelected(pair.first) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = pair.second,
+                                fontSize = 12.sp,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (index < themes.size - 1) Spacer(modifier = Modifier.width(8.dp))
+                    }
+                }
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // App Reset & Creator credits card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-            Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                // Brombolo Creator credit
+            Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = "Brombolo",
                     fontSize = 18.sp,
@@ -2579,6 +2723,33 @@ fun SettingsScreen(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f))
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Legenda Livelli Evidenza",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                LegendItem(label = Translation.getText("rel_high", lang), color = Color(0xFF2E7D32), desc = "Basato su solide prove cliniche e scientifiche.")
+                Spacer(modifier = Modifier.height(8.dp))
+                LegendItem(label = Translation.getText("rel_medium", lang), color = Color(0xFFE65100), desc = "Supportato da studi ma con variabili individuali.")
+                Spacer(modifier = Modifier.height(8.dp))
+                LegendItem(label = Translation.getText("rel_low", lang), color = Color(0xFF1565C0), desc = "Prove emergenti o basate su osservazioni preliminari.")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
     }
 
     if (showResetDialog) {
@@ -2603,5 +2774,23 @@ fun SettingsScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+fun LegendItem(label: String, color: Color, desc: String) {
+    Row(verticalAlignment = Alignment.Top) {
+        Box(
+            modifier = Modifier
+                .padding(top = 4.dp)
+                .size(10.dp)
+                .clip(CircleShape)
+                .background(color)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Column {
+            Text(text = label, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = color)
+            Text(text = desc, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }

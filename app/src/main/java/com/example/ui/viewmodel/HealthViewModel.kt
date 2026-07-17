@@ -51,12 +51,16 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
     var sugarStartTime by mutableStateOf(-1L)
         private set
 
+    var themeMode by mutableStateOf(0) // 0: System, 1: Light, 2: Dark
+        private set
+
     init {
         // Load initial values from SharedPreferences
         fastingStartTime = prefs.getLong("fasting_start_time", -1L)
         smokingStartTime = prefs.getLong("smoking_start_time", -1L)
         alcoholStartTime = prefs.getLong("alcohol_start_time", -1L)
         sugarStartTime = prefs.getLong("sugar_start_time", -1L)
+        themeMode = prefs.getInt("theme_mode", 0)
 
         // React to database habitState to set initial screen and synchronize preferences
         viewModelScope.launch(Dispatchers.IO) {
@@ -73,11 +77,11 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
                 putString("language", state.language)
                 apply()
             }
-            smokingStartTime = state.smokingStartDate
-            alcoholStartTime = state.alcoholStartDate
-            sugarStartTime = state.sugarStartDate
-
             viewModelScope.launch(Dispatchers.Main) {
+                smokingStartTime = state.smokingStartDate
+                alcoholStartTime = state.alcoholStartDate
+                sugarStartTime = state.sugarStartDate
+
                 if (!state.onboardingCompleted) {
                     currentScreen = Screen.Onboarding
                 } else {
@@ -330,7 +334,7 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
 
             val state = currentState.copy(
                 smokingEnabled = enabled,
-                smokingStartDate = if (enabled) -1L else 0L
+                smokingStartDate = -1L
             )
             repository.updateHabitState(state)
 
@@ -355,7 +359,7 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
 
             val state = currentState.copy(
                 alcoholEnabled = enabled,
-                alcoholStartDate = if (enabled) -1L else 0L
+                alcoholStartDate = -1L
             )
             repository.updateHabitState(state)
 
@@ -380,7 +384,7 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
 
             val state = currentState.copy(
                 sugarEnabled = enabled,
-                sugarStartDate = if (enabled) -1L else 0L
+                sugarStartDate = -1L
             )
             repository.updateHabitState(state)
 
@@ -428,6 +432,11 @@ class HealthViewModel(application: Application) : AndroidViewModel(application) 
             prefs.edit().putString("language", langCode).apply()
             WidgetUtils.triggerUpdate(context)
         }
+    }
+
+    fun updateThemeMode(mode: Int) {
+        themeMode = mode
+        prefs.edit().putInt("theme_mode", mode).apply()
     }
 
     // Reset all data (deletes all tables, resets preferences)

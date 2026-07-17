@@ -1,21 +1,41 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Stop! stay healthy
 
-# Run and deploy your AI Studio app
+Stop! stay healthy is a comprehensive health tracking Android application designed to help users monitor and improve their lifestyle by tracking intermittent fasting and quitting bad habits like smoking, alcohol consumption, and added sugars.
 
-This contains everything you need to run your app locally.
+## Features
 
-View your app in AI Studio: https://ai.studio/apps/65019b34-bf0b-4fb9-a769-0bb82e7dbb3b
+- **Intermittent Fasting Tracker**: Monitor your fasting periods with real-time timers, stage tracking (Autophagy, Ketosis, etc.), and historical data visualization.
+- **Habit Cessation Modules**: Specialized trackers for quitting smoking, alcohol, and added sugars with milestone achievements based on health benefits.
+- **Weight Tracking**: Log your weight and visualize progress through integrated charts that correlate with your fasting habits.
+- **Personalized Statistics**: Detailed insights into your health journey, including average fast duration and money saved from quitting habits.
+- **Dynamic Themes**: Support for Light, Dark, and System-default themes.
+- **Multi-language Support**: Available in English, Italian, Spanish, and French.
+- **Privacy First**: All data is stored locally on your device using a Room database.
 
-## Run Locally
+## Screenshots
 
-**Prerequisites:**  [Android Studio](https://developer.android.com/studio)
+*(Add screenshots here)*
 
+## Installation
 
-1. Open Android Studio
-2. Select **Open** and choose the directory containing this project
-3. Allow Android Studio to fix any incompatibilities as it imports the project.
-4. Create a file named `.env` in the project directory and set `GEMINI_API_KEY` in that file to your Gemini API key (see `.env.example` for an example)
-5. Remove this line from the app's `build.gradle.kts` file: `signingConfig = signingConfigs.getByName("debugConfig")`
-6. Run the app on an emulator or physical device
+You can download the latest APK from the [Releases](https://github.com/yourusername/Stop-Stay-Healthy/releases) section.
+
+## Built With
+
+- **Kotlin** - Primary programming language.
+- **Jetpack Compose** - Modern toolkit for building native UI.
+- **Room Database** - Local data storage.
+- **Retrofit & Moshi** - For API interactions (if any).
+- **Material 3** - Design system.
+
+## Versioning
+
+Current Version: **0.9.0-beta**
+
+## License
+
+This project is licensed under the GPL-3.0 License - see the [LICENSE](LICENSE) file for details.
+
+## Author
+
+Created by **Brombolo**
