@@ -1,18 +1,27 @@
-*.iml
-.gradle
-.kotlin
+# Project-wide ignore rules
+.gradle/
+/build/
 /local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+*.iml
+
+# IDE - IntelliJ / Android Studio
+.idea/
+*.iws
+*.ipr
+out/
+
+# OS
 .DS_Store
-/build
-/captures
+Thumbs.db
+
+# Android
+captures/
 .externalNativeBuild
 .cxx
-local.properties
-.env
 debug.keystore
+
+# Local environment
+.env
+
+# Kotlin
+.kotlin/
