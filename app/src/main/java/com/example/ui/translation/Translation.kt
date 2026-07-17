@@ -221,7 +221,7 @@ object Translation {
             "fasting" to "Digiuno Intermittente",
             "smoking" to "Smettere di Fumare",
             "alcohol" to "Smettere di Bere Alcol",
-            "sugar" to "Eliminare gli Zuccheri Aggiunti",
+            "sugar" to "Stop Zuccheri",
             "settings" to "Impostazioni",
             "statistics" to "Statistiche",
             "creator" to "Creato da Brombolo",
