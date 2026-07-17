@@ -3,11 +3,12 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Persona stilizzata in verde scuro per contrasto -->
+    <!-- Scudo Protezione Verde -->
     <path
-        android:fillColor="#00695C"
-        android:pathData="M54,20 C48.48,20 44,24.48 44,30 C44,35.52 48.48,40 54,40 C59.52,40 64,35.52 64,30 C64,24.48 59.52,20 54,20 Z M54,45 C41.3,45 31,55.3 31,68 L31,88 L77,88 L77,68 C77,55.3 66.7,45 54,45 Z" />
+        android:fillColor="#3DDC84"
+        android:pathData="M54,15 C41.6,15 31.4,19.3 26,24.1 L26,52 C26,71.2 38.8,88.4 54,93 C69.2,88.4 82,71.2 82,52 L82,24.1 C76.6,19.3 66.4,15 54,15 Z" />
+    <!-- Cuore Bianco al centro -->
     <path
-        android:fillColor="#00695C"
-        android:pathData="M25,55 L15,65 L25,75 Z M83,55 L93,65 L83,75 Z" />
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,74.5 L51.1,71.9 C40.8,62.5 34,56.4 34,48.7 C34,40.8 40,34.7 47.7,34.7 C52.1,34.7 56.2,36.7 59,40 C61.8,36.7 65.9,34.7 70.3,34.7 C78,34.7 84,40.8 84,48.7 C84,56.4 77.2,62.5 66.9,71.9 L54,74.5 Z" />
 </vector>
