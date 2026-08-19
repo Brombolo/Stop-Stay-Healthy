@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +47,7 @@ import com.example.ui.translation.Translation
 import com.example.ui.viewmodel.HealthViewModel
 import com.example.ui.viewmodel.Screen
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -71,6 +73,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainApp(viewModel: HealthViewModel) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     
     val habitState by viewModel.habitState.collectAsStateWithLifecycle()
     val fastingSessions by viewModel.fastingSessions.collectAsStateWithLifecycle()
@@ -99,32 +103,157 @@ fun MainApp(viewModel: HealthViewModel) {
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f),
-                            MaterialTheme.colorScheme.background
-                        ),
-                        center = Offset(0f, 0f),
-                        radius = 2500f
-                    )
-                )
-        ) {
-            if (currentScreen == Screen.Onboarding) {
-                OnboardingScreen(
-                    lang = lang,
-                    onComplete = { f, s, al, su ->
-                        viewModel.completeOnboarding(f, s, al, su)
-                    }
-                )
-            } else {
-                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                    val isCompact = maxWidth < 600.dp
+        if (currentScreen == Screen.Onboarding) {
+            OnboardingScreen(
+                lang = lang,
+                onComplete = { f, s, al, su ->
+                    viewModel.completeOnboarding(f, s, al, su)
+                }
+            )
+        } else {
+            ModalNavigationDrawer(
+                drawerState = drawerState,
+                drawerContent = {
+                    ModalDrawerSheet(
+                        drawerContainerColor = MaterialTheme.colorScheme.surface,
+                        drawerContentColor = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.width(280.dp)
+                    ) {
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            text = "Stop! stay healthy",
+                            modifier = Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                        
+                        if (habitState.fastingEnabled) {
+                            NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.Timer, contentDescription = null) },
+                                label = { Text(Translation.getText("fasting", lang)) },
+                                selected = currentScreen == Screen.Fasting,
+                                onClick = { 
+                                    viewModel.navigateTo(Screen.Fasting)
+                                    scope.launch { drawerState.close() }
+                                },
+                                modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                            )
+                        }
 
-                    val contentComposable: @Composable () -> Unit = {
+                        if (habitState.smokingEnabled) {
+                            NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.SmokingRooms, contentDescription = null) },
+                                label = { Text(Translation.getText("smoking", lang)) },
+                                selected = currentScreen == Screen.Smoking,
+                                onClick = { 
+                                    viewModel.navigateTo(Screen.Smoking)
+                                    scope.launch { drawerState.close() }
+                                },
+                                modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                            )
+                        }
+
+                        if (habitState.alcoholEnabled) {
+                            NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.LocalBar, contentDescription = null) },
+                                label = { Text(Translation.getText("alcohol", lang)) },
+                                selected = currentScreen == Screen.Alcohol,
+                                onClick = { 
+                                    viewModel.navigateTo(Screen.Alcohol)
+                                    scope.launch { drawerState.close() }
+                                },
+                                modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                            )
+                        }
+
+                        if (habitState.sugarEnabled) {
+                            NavigationDrawerItem(
+                                icon = { Icon(Icons.Default.Cake, contentDescription = null) },
+                                label = { Text(Translation.getText("sugar", lang)) },
+                                selected = currentScreen == Screen.Sugar,
+                                onClick = { 
+                                    viewModel.navigateTo(Screen.Sugar)
+                                    scope.launch { drawerState.close() }
+                                },
+                                modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                            )
+                        }
+
+                        if (habitState.fastingEnabled) {
+                            NavigationDrawerItem(
+                                icon = { Icon(Icons.AutoMirrored.Filled.TrendingUp, contentDescription = null) },
+                                label = { Text(Translation.getText("statistics", lang)) },
+                                selected = currentScreen == Screen.Statistics,
+                                onClick = { 
+                                    viewModel.navigateTo(Screen.Statistics)
+                                    scope.launch { drawerState.close() }
+                                },
+                                modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                            )
+                        }
+                    }
+                }
+            ) {
+                Scaffold(
+                    containerColor = Color.Transparent,
+                    topBar = {
+                        @OptIn(ExperimentalMaterial3Api::class)
+                        CenterAlignedTopAppBar(
+                            title = { 
+                                Text(
+                                    "Stop! stay healthy", 
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 18.sp
+                                ) 
+                            },
+                            navigationIcon = {
+                                IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                    Surface(
+                                        modifier = Modifier.size(32.dp),
+                                        shape = CircleShape,
+                                        color = Color.White,
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
+                                    ) {
+                                        Image(
+                                            painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_launcher_foreground),
+                                            contentDescription = "App Logo",
+                                            modifier = Modifier.padding(4.dp).clip(CircleShape)
+                                        )
+                                    }
+                                }
+                            },
+                            actions = {
+                                if (currentScreen == Screen.Fasting) {
+                                    IconButton(onClick = { viewModel.navigateTo(Screen.Statistics) }) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                                            contentDescription = "Statistics",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                                IconButton(onClick = { viewModel.navigateTo(Screen.Settings) }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Settings,
+                                        contentDescription = "Settings",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            },
+                            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                                containerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.9f)
+                            )
+                        )
+                    },
+                    contentWindowInsets = WindowInsets.safeDrawing
+                ) { innerPadding ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                    ) {
                         when (currentScreen) {
                             Screen.Fasting -> FastingScreen(
                                 lang = lang,
@@ -191,275 +320,13 @@ fun MainApp(viewModel: HealthViewModel) {
                             else -> {}
                         }
                     }
-
-                    if (isCompact) {
-                        Scaffold(
-                            containerColor = Color.Transparent,
-                            bottomBar = {
-                                AppBottomNavigationBar(
-                                    currentScreen = currentScreen,
-                                    habitState = habitState,
-                                    lang = lang,
-                                    onNavigate = { viewModel.navigateTo(it) }
-                                )
-                            },
-                            contentWindowInsets = WindowInsets.safeDrawing
-                        ) { innerPadding ->
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(innerPadding)
-                            ) {
-                                contentComposable()
-                            }
-                        }
-                    } else {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .windowInsetsPadding(WindowInsets.safeDrawing)
-                        ) {
-                            NavigationSidebar(
-                                currentScreen = currentScreen,
-                                habitState = habitState,
-                                lang = lang,
-                                onNavigate = { viewModel.navigateTo(it) }
-                            )
-
-                            VerticalDivider(
-                                thickness = 1.dp,
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                            )
-
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxHeight()
-                                    .weight(1f)
-                            ) {
-                                contentComposable()
-                            }
-                        }
-                    }
                 }
             }
         }
     }
 }
 
-@Composable
-fun AppBottomNavigationBar(
-    currentScreen: Screen,
-    habitState: HabitState,
-    lang: String,
-    onNavigate: (Screen) -> Unit
-) {
-    NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 6.dp
-    ) {
-        if (habitState.fastingEnabled) {
-            NavigationBarItem(
-                icon = { Icon(Icons.Default.Timer, contentDescription = null) },
-                label = { Text(Translation.getText("tab_fasting", lang), maxLines = 1, fontSize = 10.sp) },
-                selected = currentScreen == Screen.Fasting,
-                onClick = { onNavigate(Screen.Fasting) }
-            )
-        }
-        if (habitState.smokingEnabled) {
-            NavigationBarItem(
-                icon = { Icon(Icons.Default.SmokingRooms, contentDescription = null) },
-                label = { Text(Translation.getText("tab_smoking", lang), maxLines = 1, fontSize = 10.sp) },
-                selected = currentScreen == Screen.Smoking,
-                onClick = { onNavigate(Screen.Smoking) }
-            )
-        }
-        if (habitState.alcoholEnabled) {
-            NavigationBarItem(
-                icon = { Icon(Icons.Default.LocalBar, contentDescription = null) },
-                label = { Text(Translation.getText("tab_alcohol", lang), maxLines = 1, fontSize = 10.sp) },
-                selected = currentScreen == Screen.Alcohol,
-                onClick = { onNavigate(Screen.Alcohol) }
-            )
-        }
-        if (habitState.sugarEnabled) {
-            NavigationBarItem(
-                icon = { Icon(Icons.Default.Cake, contentDescription = null) },
-                label = { Text(Translation.getText("tab_sugar", lang), maxLines = 1, fontSize = 10.sp) },
-                selected = currentScreen == Screen.Sugar,
-                onClick = { onNavigate(Screen.Sugar) }
-            )
-        }
-        if (habitState.fastingEnabled) {
-            NavigationBarItem(
-                icon = { Icon(Icons.AutoMirrored.Filled.TrendingUp, contentDescription = null) },
-                label = { Text(Translation.getText("tab_statistics", lang), maxLines = 1, fontSize = 10.sp) },
-                selected = currentScreen == Screen.Statistics,
-                onClick = { onNavigate(Screen.Statistics) }
-            )
-        }
-        NavigationBarItem(
-            icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-            label = { Text(Translation.getText("tab_settings", lang), maxLines = 1, fontSize = 10.sp) },
-            selected = currentScreen == Screen.Settings,
-            onClick = { onNavigate(Screen.Settings) }
-        )
-    }
-}
 
-@Composable
-fun NavigationSidebar(
-    currentScreen: Screen,
-    habitState: HabitState,
-    lang: String,
-    onNavigate: (Screen) -> Unit
-) {
-    NavigationRail(
-        modifier = Modifier.fillMaxHeight(),
-        containerColor = Color.Transparent,
-        header = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Surface(
-                    modifier = Modifier.size(54.dp),
-                    shape = CircleShape,
-                    color = Color.White,
-                    border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
-                    shadowElevation = 4.dp
-                ) {
-                    Image(
-                        painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_launcher_foreground),
-                        contentDescription = "App Logo",
-                        modifier = Modifier.padding(8.dp).clip(CircleShape)
-                    )
-                }
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-        }
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.surface,
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        )
-                    )
-                )
-        ) {
-            Column(
-                modifier = Modifier.fillMaxHeight().padding(bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.Top),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                if (habitState.fastingEnabled) {
-                    SidebarItem(
-                        icon = Icons.Default.Timer,
-                        label = Translation.getText("fasting", lang),
-                        selected = currentScreen == Screen.Fasting,
-                        onClick = { onNavigate(Screen.Fasting) }
-                    )
-                }
-
-                if (habitState.smokingEnabled) {
-                    SidebarItem(
-                        icon = Icons.Default.SmokingRooms,
-                        label = Translation.getText("smoking", lang),
-                        selected = currentScreen == Screen.Smoking,
-                        onClick = { onNavigate(Screen.Smoking) }
-                    )
-                }
-
-                if (habitState.alcoholEnabled) {
-                    SidebarItem(
-                        icon = Icons.Default.LocalBar,
-                        label = Translation.getText("alcohol", lang),
-                        selected = currentScreen == Screen.Alcohol,
-                        onClick = { onNavigate(Screen.Alcohol) }
-                    )
-                }
-
-                if (habitState.sugarEnabled) {
-                    SidebarItem(
-                        icon = Icons.Default.Cake,
-                        label = Translation.getText("sugar", lang),
-                        selected = currentScreen == Screen.Sugar,
-                        onClick = { onNavigate(Screen.Sugar) }
-                    )
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                HorizontalDivider(
-                    modifier = Modifier.width(40.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                )
-
-                if (habitState.fastingEnabled) {
-                    SidebarItem(
-                        icon = Icons.AutoMirrored.Filled.TrendingUp,
-                        label = Translation.getText("statistics", lang),
-                        selected = currentScreen == Screen.Statistics,
-                        onClick = { onNavigate(Screen.Statistics) }
-                    )
-                }
-
-                SidebarItem(
-                    icon = Icons.Default.Settings,
-                    label = Translation.getText("settings", lang),
-                    selected = currentScreen == Screen.Settings,
-                    onClick = { onNavigate(Screen.Settings) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun SidebarItem(
-    icon: ImageVector,
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    val containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-    val contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-    val iconSize by animateDpAsState(targetValue = if (selected) 28.dp else 24.dp)
-
-    Box(
-        modifier = Modifier
-            .size(60.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(containerColor)
-            .clickable(onClick = onClick)
-            .padding(4.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = contentColor,
-                modifier = Modifier.size(iconSize)
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = label,
-                fontSize = 9.sp,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                color = contentColor,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 2.dp)
-            )
-        }
-    }
-}
 
 @Composable
 fun OnboardingScreen(
@@ -1369,17 +1236,25 @@ fun formatRemainingTime(daysRemaining: Double, lang: String): String {
 
 @Composable
 fun TimeItem(value: Long, unit: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .padding(vertical = 4.dp)
+            .width(60.dp)
+    ) {
         Text(
-            text = value.toString(),
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
+            text = String.format("%02d", value),
+            fontSize = 36.sp,
+            fontWeight = FontWeight.Black,
+            color = MaterialTheme.colorScheme.primary,
+            lineHeight = 36.sp
         )
         Text(
-            text = unit,
+            text = unit.uppercase(),
             fontSize = 11.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            fontWeight = FontWeight.ExtraBold,
+            letterSpacing = 0.5.sp
         )
     }
 }
@@ -1590,7 +1465,7 @@ fun BadHabitScreen(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Time counters
+                // Time counters and action buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
@@ -1601,142 +1476,116 @@ fun BadHabitScreen(
                     val m = if (isFuture) minutesToStart else minutes
                     val s = if (isFuture) secondsToStart else seconds
 
-                    TimeItem(value = d, unit = Translation.getText("days", lang))
-                    Spacer(modifier = Modifier.width(12.dp))
-                    TimeItem(value = h, unit = "h")
-                    Spacer(modifier = Modifier.width(12.dp))
-                    TimeItem(value = m, unit = "m")
-                    Spacer(modifier = Modifier.width(12.dp))
-                    TimeItem(value = s, unit = "s")
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Side-by-side action buttons (Edit pencil & Stop)
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    FilledIconButton(
-                        onClick = {
-                            showDateTimePicker(context, startTime) { newTime ->
-                                onStart(newTime)
-                            }
-                        },
-                        modifier = Modifier.size(38.dp),
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f),
-                            contentColor = MaterialTheme.colorScheme.primary
-                        )
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = Translation.getText("edit_start_time", lang),
-                            modifier = Modifier.size(18.dp)
-                        )
+                        TimeItem(value = d, unit = Translation.getText("days", lang))
+                        Text(":", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), modifier = Modifier.padding(bottom = 12.dp))
+                        TimeItem(value = h, unit = "h")
+                        Text(":", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), modifier = Modifier.padding(bottom = 12.dp))
+                        TimeItem(value = m, unit = "m")
+                        Text(":", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), modifier = Modifier.padding(bottom = 12.dp))
+                        TimeItem(value = s, unit = "s")
                     }
 
-                    FilledIconButton(
-                        onClick = { showStopConfirmation = true },
-                        modifier = Modifier.size(38.dp),
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f),
-                            contentColor = MaterialTheme.colorScheme.error
-                        )
+                    Spacer(modifier = Modifier.width(20.dp))
+
+                    // Fixed side action buttons
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Stop,
-                            contentDescription = Translation.getText("stop_journey", lang),
-                            modifier = Modifier.size(20.dp)
-                        )
+                        FilledIconButton(
+                            onClick = {
+                                showDateTimePicker(context, startTime) { newTime ->
+                                    onStart(newTime)
+                                }
+                            },
+                            modifier = Modifier.size(44.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.secondary
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = Translation.getText("edit_start_time", lang),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        FilledIconButton(
+                            onClick = { showStopConfirmation = true },
+                            modifier = Modifier.size(44.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.error
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Stop,
+                                contentDescription = Translation.getText("stop_journey", lang),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
                 }
 
                 if (isSmoking) {
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
                     var showEditCostDialog by remember { mutableStateOf(false) }
                     var costInput by remember { mutableStateOf(dailyCost.toString()) }
 
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        ),
-                        border = BorderStroke(1.dp, Color(0xFF2E7D32).copy(alpha = 0.3f))
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().clickable {
+                            costInput = dailyCost.toString()
+                            showEditCostDialog = true
+                        },
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                        border = BorderStroke(1.dp, Color(0xFF2E7D32).copy(alpha = 0.2f))
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(30.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF2E7D32).copy(alpha = 0.15f)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.AccountBalanceWallet,
-                                        contentDescription = null,
-                                        tint = Color(0xFF2E7D32),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = Translation.getText("saved_money", lang),
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.AccountBalanceWallet,
+                                    contentDescription = null,
+                                    tint = Color(0xFF2E7D32),
+                                    modifier = Modifier.size(20.dp)
                                 )
-                            }
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            Text(
-                                text = String.format("€ %.2f", savedMoney),
-                                fontSize = 28.sp,
-                                fontWeight = FontWeight.Black,
-                                color = Color(0xFF2E7D32)
-                            )
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                                modifier = Modifier.clickable {
-                                    costInput = dailyCost.toString()
-                                    showEditCostDialog = true
-                                }
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
                                     Text(
-                                        text = "${Translation.getText("daily_expense", lang)}: € $dailyCost",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        text = Translation.getText("saved_money", lang),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = "Edit cost",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(14.dp)
+                                    Text(
+                                        text = String.format("€ %.2f", savedMoney),
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = Color(0xFF2E7D32)
                                     )
                                 }
                             }
+                            
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                                modifier = Modifier.size(16.dp)
+                            )
                         }
                     }
 
