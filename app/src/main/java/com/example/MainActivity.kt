@@ -202,16 +202,9 @@ fun MainApp(viewModel: HealthViewModel) {
                         @OptIn(ExperimentalMaterial3Api::class)
                         CenterAlignedTopAppBar(
                             title = { 
-                                Text(
-                                    "Stop! stay healthy", 
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 18.sp
-                                ) 
-                            },
-                            navigationIcon = {
-                                IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
                                     Surface(
-                                        modifier = Modifier.size(32.dp),
+                                        modifier = Modifier.size(28.dp),
                                         shape = CircleShape,
                                         color = Color.White,
                                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary)
@@ -219,9 +212,24 @@ fun MainApp(viewModel: HealthViewModel) {
                                         Image(
                                             painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_launcher_foreground),
                                             contentDescription = "App Logo",
-                                            modifier = Modifier.padding(4.dp).clip(CircleShape)
+                                            modifier = Modifier.padding(3.dp).clip(CircleShape)
                                         )
                                     }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        "Stop! stay healthy", 
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 18.sp
+                                    )
+                                }
+                            },
+                            navigationIcon = {
+                                IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Menu,
+                                        contentDescription = "Menu",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
                                 }
                             },
                             actions = {
@@ -230,6 +238,15 @@ fun MainApp(viewModel: HealthViewModel) {
                                         Icon(
                                             imageVector = Icons.AutoMirrored.Filled.TrendingUp,
                                             contentDescription = "Statistics",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
+                                if (currentScreen == Screen.Statistics) {
+                                    IconButton(onClick = { viewModel.navigateTo(Screen.Fasting) }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Timer,
+                                            contentDescription = "Fasting",
                                             tint = MaterialTheme.colorScheme.primary
                                         )
                                     }

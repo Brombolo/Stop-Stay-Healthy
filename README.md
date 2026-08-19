@@ -30,7 +30,7 @@ You can download the latest APK from the [Releases](https://github.com/yourusern
 
 ## Versioning
 
-Current Version: **0.9.0-beta**
+Current Version: **0.9.9**
 
 ## License
 
